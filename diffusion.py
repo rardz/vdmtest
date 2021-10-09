@@ -270,12 +270,19 @@ class GaussianDiffusion:
 
     def prior_norm_kl(self, x_start, gamma_t):
         '''
-        (-log(variance_t) + variance_t + (alpha_t^2 x ^2) - 1) / 2
+        KL(N((alpha_t x), sigma_t^2 ) || N(0, 1)) = (-log(variance_t) + variance_t + (alpha_t^2 x ^2) - 1) / 2
         '''
         gamma_t = unsqueeze_x_as_y(gamma_t, x_start)
         return (- self.get_log_variance(gamma_t) + self.get_variance(gamma_t) + self.get_alpha_square(gamma_t) * x_start.pow(2) - 1) / 2
 
     def neg_log_pdf(self, x_start, gamma_t):
+        '''
+        choose p(x_i | z_0) \propto q(z_0 | x_i), which forms N(alpha_0 x, sigma_0^2)
+        -N(alpha_0 x, sigma_0^2).log_pdf(x) = 0.5 * [(x - alpha_0 x) ^ 2 / (simga_0 ^ 2) +  log(simga_0 ^ 2) + log(2 * math.pi)]
+        where,
+            log(simga_0 ^ 2) = -log(1+ SNR(t)) = - log(1 + exp(-gamma_t))
+            (x - alpha_0 x) ^ 2 / (simga_0 ^ 2) = (1 - 2 /(1 + sqrt(1 + exp(gamma_t)))) x^2
+        '''
         gamma_t = unsqueeze_x_as_y(gamma_t, x_start)
         return ((1 - 2 / (1 + torch.sqrt(1 + gamma_t.exp()))) * x_start.pow(2) + F.softplus(gamma_t, beta=-1) + math.log(2 * math.pi)) / 2
 
